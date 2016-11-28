@@ -19,8 +19,6 @@ public class HadoopMapper extends Mapper<LongWritable, Text, IntWritable, Text>
 	@Override
 	protected void map(LongWritable key, Text value, Mapper<LongWritable, Text, IntWritable, Text>.Context context) throws IOException, InterruptedException 
 	{
-		//BoundaryHelper bh = bh.bound;
-		//DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
         String inputLine = value.toString();
         
         String[] stringArray = inputLine.split("\\,");
