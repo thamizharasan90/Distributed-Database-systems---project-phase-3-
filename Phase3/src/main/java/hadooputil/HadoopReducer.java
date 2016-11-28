@@ -7,18 +7,19 @@ import java.util.LinkedList;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.NullWritable;
+//import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
+//import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
 
 import utiltools.*;
 
-public class HadoopReducer extends Reducer<IntWritable, Text, Text, NullWritable> {
+public class HadoopReducer extends Reducer<LongWritable, Text, Text, LongWritable> {
 	
 	@Override
-	protected void reduce(IntWritable arg0, Iterable<Text> arg1,
-			Reducer<IntWritable, Text, Text, NullWritable>.Context arg2) throws IOException, InterruptedException 
+	protected void reduce(LongWritable arg0, Iterable<Text> arg1,
+			Reducer<LongWritable, Text, Text, LongWritable>.Context arg2) throws IOException, InterruptedException 
 	{
 		HashMap<SpaceIndexObj, AtomicInteger> mp = new HashMap<>();
 		
@@ -36,7 +37,7 @@ public class HadoopReducer extends Reducer<IntWritable, Text, Text, NullWritable
 				{
 					for (int k = -1; k <= +1; ++k) 
 					{
-						SpaceIndexObj stc = new SpaceIndexObj(x + i, y + j, d + k);
+						SpaceIndexObj stc = new SpaceIndexObj(x + i, y + j, d + k + 1);
 						if (!mp.containsKey(stc)) {
 							mp.put(stc, new AtomicInteger(v));
 						} else {
@@ -58,9 +59,11 @@ public class HadoopReducer extends Reducer<IntWritable, Text, Text, NullWritable
 		
 		Text outputText = new Text();
 		
-		for (int i = 0; i < Math.min(array.length, 50); ++i) {
+		for (int i = 0; i < Math.min(array.length, 50); ++i) 
+		{
 			outputText.set(array[i].toString());
-			arg2.write(outputText, NullWritable.get());
+			System.out.println("reducer value " + outputText);
+			arg2.write(outputText, null);
 		}
 		// TODO Auto-generated method stub
 		//super.reduce(arg0, arg1, arg2);

@@ -3,8 +3,10 @@ import java.io.IOException;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.NullWritable;
+import org.apache.hadoop.io.LongWritable;
+//import org.apache.hadoop.io.IntWritable;
+//import org.apache.hadoop.io.LongWritable;
+//import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
@@ -18,12 +20,13 @@ public class MapperReducerMain {
 		Configuration conf = new Configuration();
 		
 		//@SuppressWarnings("deprecation")
-		//Job job = Job.getInstance(conf, "MapperReducerMain");
-		Job job = Job.getInstance();
+		Job job = Job.getInstance(conf, "MapperReducerMain");
+		//Job job = Job.getInstance(conf,"");
 		job.getConfiguration().set("mapreduce.ifile.readahead", "false");
 		
 		job.setOutputKeyClass(Text.class);
-		job.setOutputValueClass(NullWritable.class);
+		job.setOutputValueClass(LongWritable.class);
+		
 		job.setJarByClass(MapperReducerMain.class);
 		
 		job.setInputFormatClass(TextInputFormat.class);
@@ -32,7 +35,7 @@ public class MapperReducerMain {
 		job.setMapperClass(HadoopMapper.class);
 		job.setReducerClass(HadoopReducer.class);
 		job.setMapOutputValueClass(Text.class);
-		job.setMapOutputKeyClass(IntWritable.class);
+		job.setMapOutputKeyClass(LongWritable.class);
 		
 		job.setNumReduceTasks(200);
 		

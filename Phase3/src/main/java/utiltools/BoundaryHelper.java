@@ -20,7 +20,7 @@ public class BoundaryHelper
 	
 //	private final SimpleDateFormat formatter;
 	public static BoundaryHelper bound = new BoundaryHelper(0.01, -74.25, -73.70, 40.5, 40.9);//,"2015-01-01","2015-01-31"
-	public BoundaryHelper(double cellparam, double startlatitude,double endlatitude, double startlongitude, double endlongitude)//String startDate, String endDate
+	public BoundaryHelper(double cellparam,  double startlongitude, double endlongitude,double startlatitude,double endlatitude)//, startDate, String endDate
 	{
 		this.cellparam = cellparam;
 		double temp = (long)(startlongitude/cellparam);
@@ -33,7 +33,7 @@ public class BoundaryHelper
 		
 		this.slat = startlatitude;
 		
-		temp = (long)(startlatitude/cellparam);
+		temp = (long)(endlatitude/cellparam);
 		temp = temp * cellparam;
 		if(temp < cellparam)
 			temp = temp + cellparam;
@@ -61,6 +61,8 @@ public class BoundaryHelper
 	}
 	
 	public int getXCell(double longitude) {
+		System.out.println("value of slong " + slong );
+		System.out.println("value of elong " + elong );
 		if (longitude < slong || longitude > elong) {
 			return -1;
 		}
@@ -68,6 +70,8 @@ public class BoundaryHelper
 	}
 	
 	public int getYCell(double latitude) {
+		System.out.println("value of slat " + slat);
+		System.out.println("value of elat " + elat );
 		if (latitude < slat || latitude > elat) {
 			return -1;
 		}
