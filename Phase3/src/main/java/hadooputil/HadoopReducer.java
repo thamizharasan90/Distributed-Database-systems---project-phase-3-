@@ -62,8 +62,6 @@ public class HadoopReducer extends Reducer<IntWritable, Text, Text, NullWritable
 			outputText.set(array[i].toString());
 			arg2.write(outputText, NullWritable.get());
 		}
-		// TODO Auto-generated method stub
-		//super.reduce(arg0, arg1, arg2);
 	}
 
 }
