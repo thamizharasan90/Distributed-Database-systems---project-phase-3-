@@ -1,5 +1,7 @@
 package io.purush.spark.giscup.script
 
+import java.util
+
 import org.apache.spark.{SparkConf, SparkContext}
 
 object CellScript {
@@ -37,40 +39,41 @@ object CellScript {
     // Filter out envelope around NYC in Long,Lat values
     val envelopeFilteredRDD = roundedRDD filter {
       x =>
-        x._3 > 40.50 &&
-          x._3 < 40.90 &&
-          x._2 > -74.25 &&
-          x._2 < -73.70
+        x._3 >= 40.50 &&
+          x._3 <= 40.90 &&
+          x._2 >= -74.25 &&
+          x._2 <= -73.70
     }
 
     // Cutout longitude and compare it across tuple3s
     val orderByLongitude = new Ordering[(Int, Int, Int)]() {
       override def compare(x: (Int, Int, Int), y: (Int, Int, Int)): Int =
-        x._3 compare y._3
+        x._2 compare y._2
     }
 
     // Cutout latitude and compare it across tuple3s
     val orderByLatitude = new Ordering[(Int, Int, Int)]() {
       override def compare(x: (Int, Int, Int), y: (Int, Int, Int)): Int =
-        x._2 compare y._2
+        x._3 compare y._3
     }
 
     // Intify lat,longs, have an extra digit to make sure points are properly bucketed in cells
     val intedRDD = envelopeFilteredRDD map { x => (x._1, (x._2 * 1000).toInt, (x._3 * 1000).toInt) }
 
     // Find ranges to partition cells
-    val maxLongitude = intedRDD.max()(orderByLongitude)._3
-    val minLongitude = intedRDD.min()(orderByLongitude)._3
-    val maxLatitude = intedRDD.max()(orderByLatitude)._2
-    val minLatitude = intedRDD.min()(orderByLatitude)._2
+    val maxLongitude = intedRDD.max()(orderByLongitude)._2
+    val minLongitude = intedRDD.min()(orderByLongitude)._2
+    val maxLatitude = intedRDD.max()(orderByLatitude)._3
+    val minLatitude = intedRDD.min()(orderByLatitude)._3
     val xcells = (maxLongitude - minLongitude) / 10
     val ycells = (maxLatitude - minLatitude) / 10
-
-
+    println(xcells + " , " + ycells)
+    println(maxLatitude + " " + maxLongitude)
+    println(minLatitude + " " + minLongitude)
     // Transform points relative to envelope borders (40.5,-74.25)
-    val spatiallyTransformedRDD = intedRDD map { x => (x._1, x._2 + 74250, x._3 - 40500) }
+    val spatiallyTransformedRDD = intedRDD map { x => (x._1, x._2 + math.abs(minLongitude), x._3 - math.abs(minLatitude)) }
 
-
+    println(spatiallyTransformedRDD.count)
     def isInCell(d: (Int, Int, Int), c: (Int, Int)): Boolean = {
       (c._1 * 10 <= d._2) &&
         (d._2 <= (c._1 + 1) * 10 - 1) &&
@@ -79,7 +82,7 @@ object CellScript {
     }
 
     // Create a cell-grid of ycells x xcells, flatten and zip to get row wise column order indices for any cell
-    val zippedGrid = Array.tabulate(ycells, xcells)((x, y) => (x, y)).flatten.zipWithIndex
+    val zippedGrid = Array.tabulate(xcells + 1, ycells + 1)((x, y) => (x, y)).flatten.zipWithIndex
 
     // Cellify cutRDD
     val spatialCelledRDD = spatiallyTransformedRDD map { x => (zippedGrid filter { y => isInCell(x, y._1) }, x._1) }
@@ -98,9 +101,220 @@ object CellScript {
       override def compare(x: ((Int, Int), Int), y: ((Int, Int), Int)): Int =
         x._2 compare y._2
     }
-    println(reducedCelledRDD.map(x=>x._2).reduce(_+_) + " sum over cells")
-    keyedSpatialCelledRDD.saveAsTextFile("hdfs://localhost:54310/cellGridWTrips")
-    //reducedCelledRDD.max()(orderInt)
+    println(reducedCelledRDD.map(x => x._2).reduce(_ + _) + " sum over cells")
+
+    def findNeighbor(x: Int, t: Int): List[(Int, Int)] = {
+      /*Ugliest scala function ever written*/
+
+      val ycc = ycells + 1
+      var result = List[(Int, Int)]()
+
+      if (x == 0) {
+        // Left Bottom
+        List(
+          (x, t - 1),
+          (x, t + 1),
+
+          (x + 1, t - 1),
+          (x + 1, t),
+          (x + 1, t + 1),
+
+          (x + ycc + 1, t - 1),
+          (x + ycc + 1, t),
+          (x + ycc + 1, t + 1),
+
+          (x + ycc, t - 1),
+          (x + ycc, t),
+          (x + ycc, t + 1)
+
+        )
+      } else if (x == (xcells* ycc + ycells)) {
+        //top right
+        List(
+          (x, t - 1),
+          (x, t + 1),
+
+          (x - 1, t - 1),
+          (x - 1, t),
+          (x - 1, t + 1),
+
+          (x - ycc, t - 1),
+          (x - ycc, t),
+          (x - ycc, t + 1),
+
+          (x - ycc - 1, t - 1),
+          (x - ycc - 1, t),
+          (x - ycc - 1, t + 1)
+
+        )
+      } else if (x == (ycells)) {
+        //left top
+        List(
+          (x, t - 1),
+          (x, t + 1),
+
+          (x - 1, t - 1),
+          (x - 1, t),
+          (x - 1, t + 1),
+
+          (x + ycc, t - 1),
+          (x + ycc, t),
+          (x + ycc, t + 1),
+
+          (x + ycc - 1, t - 1),
+          (x + ycc - 1, t),
+          (x + ycc - 1, t + 1)
+
+        )
+      } else if (x == (xcells*ycc)) {
+        //right bottom
+        List(
+          (x, t - 1),
+          (x, t + 1),
+
+          (x + 1, t - 1),
+          (x + 1, t),
+          (x + 1, t + 1),
+
+          (x - ycc, t - 1),
+          (x - ycc, t),
+          (x - ycc, t + 1),
+
+          (x - ycc + 1, t - 1),
+          (x - ycc + 1, t),
+          (x - ycc + 1, t + 1)
+
+        )
+      } else if (x % ycc == 0) {
+        //Bottom gutter
+        List(
+          (x, t - 1),
+          (x, t + 1),
+
+          (x + 1, t - 1),
+          (x + 1, t),
+          (x + 1, t + 1),
+
+          (x + ycc, t - 1),
+          (x + ycc, t),
+          (x + ycc, t + 1),
+
+          (x + ycc + 1, t - 1),
+          (x + ycc + 1, t),
+          (x + ycc + 1, t + 1),
+
+          (x - ycc, t - 1),
+          (x - ycc, t),
+          (x - ycc, t + 1),
+
+          (x - ycc + 1, t - 1),
+          (x - ycc + 1, t),
+          (x - ycc + 1, t + 1)
+        )
+      } else if ((1 until xcells).contains(x)) {
+        //Left gutter
+        List(
+          (x, t - 1),
+          (x, t + 1),
+
+          (x + 1, t - 1),
+          (x + 1, t),
+          (x + 1, t + 1),
+
+          (x - 1, t - 1),
+          (x - 1, t),
+          (x - 1, t + 1),
+
+          (x + ycc, t - 1),
+          (x + ycc, t),
+          (x + ycc, t + 1),
+
+          (x + ycc + 1, t - 1),
+          (x + ycc + 1, t),
+          (x + ycc + 1, t + 1),
+
+          (x + ycc - 1, t - 1),
+          (x + ycc - 1, t),
+          (x + ycc - 1, t + 1)
+
+        )
+      } else if ((xcells * ycc to xcells * ycc + ycells).contains(x)) {
+        //Right gutter
+        List(
+          (x, t - 1),
+          (x, t + 1),
+
+          (x + 1, t - 1),
+          (x + 1, t),
+          (x + 1, t + 1),
+
+          (x - 1, t - 1),
+          (x - 1, t),
+          (x - 1, t + 1),
+
+          (x - ycc, t - 1),
+          (x - ycc, t),
+          (x - ycc, t + 1),
+
+          (x - ycc + 1, t - 1),
+          (x - ycc + 1, t),
+          (x - ycc + 1, t + 1),
+
+          (x - ycc - 1, t - 1),
+          (x - ycc - 1, t),
+          (x - ycc - 1, t + 1)
+
+        )
+      } else if ((x + 1) % ycc == 0) {
+        //top gutter
+        List(
+          (x, t - 1),
+          (x, t + 1),
+
+          (x - 1, t - 1),
+          (x - 1, t),
+          (x - 1, t + 1),
+
+          (x - ycc, t - 1),
+          (x - ycc, t),
+          (x - ycc, t + 1),
+
+          (x - ycc - 1, t - 1),
+          (x - ycc - 1, t),
+          (x - ycc - 1, t + 1),
+
+          (x + ycc, t - 1),
+          (x + ycc, t),
+          (x + ycc, t + 1),
+
+          (x + ycc - 1, t - 1),
+          (x + ycc - 1, t),
+          (x + ycc - 1, t + 1))
+      }
+      else {
+
+        List((x + 1, t), (x - 1, t),
+          (x + ycc - 1, t), (x + ycc, t), (x + ycc + 1, t),
+          (x - ycc - 1, t), (x - ycc, t), (x - ycc + 1, t),
+          (x + 1, t - 1), (x - 1, t - 1), (x, t - 1),
+          (x + ycc - 1, t - 1), (x + ycc, t - 1), (x + ycc + 1, t - 1),
+          (x - ycc - 1, t - 1), (x - ycc, t - 1), (x - ycc + 1, t - 1),
+          (x + 1, t + 1), (x - 1, t + 1), (x, t + 1),
+          (x + ycc - 1, t + 1), (x + ycc, t + 1), (x + ycc + 1, t + 1),
+          (x - ycc - 1, t + 1), (x - ycc, t + 1), (x - ycc + 1, t + 1)
+        )
+      }
+    }
+
+    def checkBounds(x: (Int, Int)): Boolean = {
+      x._1 >= 0 && x._1 < zippedGrid.size && x._2 > 0 && x._2 <= 31
+    }
+    def getis(c: ((Int, Int), Int)): Double = {
+      val l = findNeighbor(c._1._1, c._1._2)
+
+      0.0
+    }
+
 
   }
 
