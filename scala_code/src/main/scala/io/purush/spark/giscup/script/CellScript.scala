@@ -8,7 +8,7 @@ object CellScript {
   def main(args: Array[String]): Unit = {
 
     // Setup csv file path on hdfs
-    val textFile = "hdfs://localhost:54310/input"
+    val textFile = "hdfs://localhost:54310/inputBig"
 
     // Setup Spark Context
     val config = new SparkConf().setAppName("Phase-III-GISCUP")
@@ -128,7 +128,7 @@ object CellScript {
           (x + ycc, t + 1)
 
         )
-      } else if (x == (xcells* ycc + ycells)) {
+      } else if (x == (xcells * ycc + ycells)) {
         //top right
         List(
           (x, t - 1),
@@ -166,7 +166,7 @@ object CellScript {
           (x + ycc - 1, t + 1)
 
         )
-      } else if (x == (xcells*ycc)) {
+      } else if (x == (xcells * ycc)) {
         //right bottom
         List(
           (x, t - 1),
@@ -306,15 +306,44 @@ object CellScript {
       }
     }
 
-    def checkBounds(x: (Int, Int)): Boolean = {
-      x._1 >= 0 && x._1 < zippedGrid.size && x._2 > 0 && x._2 <= 31
+    def checkTimeBounds(x: (Int, Int)): Boolean = {
+      x._2 >= 1 && x._2 <= 31
     }
-    def getis(c: ((Int, Int), Int)): Double = {
-      val l = findNeighbor(c._1._1, c._1._2)
+    // Common constants need this guy
+    val xValues = reducedCelledRDD map { x => x._2 }
 
-      0.0
+
+    // Common constants
+    val n = xValues.count
+    val X = xValues.reduce(_ + _) / n
+    val sumXSq = (xValues reduce { (a, x) => a + (x * x) }) / n
+    val XSq = X * X
+    val S = math.sqrt(sumXSq - XSq)
+
+
+    //HashMap the cells and their values
+    val cellValuesMap = reducedCelledRDD.collect.toMap
+
+    def getis(xt: (Int, Int)): Double = {
+      val neighs = findNeighbor(xt._1, xt._2).filter(checkTimeBounds) :+ (xt._1, xt._2)
+      val W = neighs.size
+      val denominator = S * math.sqrt((n * W - W * W) / (n - 1))
+      val neighVals = neighs.map(y => cellValuesMap.get(y))
+      val nrSecondHalf = X * W
+      val nrFirstHalf = neighVals.foldLeft(0)((a, x) => a + (if (x.isEmpty) 0 else x.get))
+      val numerator = nrFirstHalf - nrSecondHalf
+      numerator / denominator
     }
 
+
+    val getisReducedRDD = reducedCelledRDD.map(x => (x, getis(x._1._1, x._1._2)))
+
+    val orderGetis = new Ordering[(((Int, Int), Int), Double)]() {
+      override def compare(x: (((Int, Int), Int), Double), y: (((Int, Int), Int), Double)): Int =
+        x._2 compare y._2
+    }
+
+    getisReducedRDD.takeOrdered(50)(orderGetis)
 
   }
 
