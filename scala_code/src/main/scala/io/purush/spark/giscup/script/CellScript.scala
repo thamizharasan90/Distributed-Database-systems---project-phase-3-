@@ -29,7 +29,7 @@ object CellScript {
     // Also round out the lat,long fields and take only day field from datetime field
     def splitFilter(s: Array[String]): (Int, Double, Double) = {
       def reRound(x: Int, i: Int): Double = if (s(x).length > i) roundUp(s(x), i) else s(x).toDouble
-      (s(1).split(" ")(0).split("-")(2).toInt, reRound(5, 6), reRound(6, 7))
+      (s(1).split(" ")(0).split("-")(2).toInt, s(5).toDouble, s(6).toDouble)
     }
 
     // Apply splitting, filtering and rounding on headerRemovedRDD
@@ -47,39 +47,41 @@ object CellScript {
     }
 
     // Cutout longitude and compare it across tuple3s
-    val orderByLongitude = new Ordering[(Int, Int, Int)]() {
-      override def compare(x: (Int, Int, Int), y: (Int, Int, Int)): Int =
+    val orderByLongitude = new Ordering[(Int, Double, Double)]() {
+      override def compare(x: (Int, Double, Double), y: (Int, Double, Double)): Int =
         x._2 compare y._2
     }
 
     // Cutout latitude and compare it across tuple3s
-    val orderByLatitude = new Ordering[(Int, Int, Int)]() {
-      override def compare(x: (Int, Int, Int), y: (Int, Int, Int)): Int =
+    val orderByLatitude = new Ordering[(Int, Double, Double)]() {
+      override def compare(x: (Int, Double, Double), y: (Int, Double, Double)): Int =
         x._3 compare y._3
     }
 
     // Intify lat,longs, have an extra digit to make sure points are properly bucketed in cells
-    val intedRDD = envelopeFilteredRDD map { x => (x._1, (x._2 * 1000).toInt, (x._3 * 1000).toInt) }
+    //val intedRDD = envelopeFilteredRDD map { x => (x._1, (x._2 * 1000).toInt, (x._3 * 1000).toInt) }
 
     // Find ranges to partition cells
-    val maxLongitude = intedRDD.max()(orderByLongitude)._2
-    val minLongitude = intedRDD.min()(orderByLongitude)._2
-    val maxLatitude = intedRDD.max()(orderByLatitude)._3
-    val minLatitude = intedRDD.min()(orderByLatitude)._3
-    val xcells = (maxLongitude - minLongitude) / 10
-    val ycells = (maxLatitude - minLatitude) / 10
-    println(xcells + " , " + ycells)
-    println(maxLatitude + " " + maxLongitude)
-    println(minLatitude + " " + minLongitude)
+    val maxLongitude = envelopeFilteredRDD.max()(orderByLongitude)._2
+    val minLongitude = envelopeFilteredRDD.min()(orderByLongitude)._2
+    val maxLatitude = envelopeFilteredRDD.max()(orderByLatitude)._3
+    val minLatitude = envelopeFilteredRDD.min()(orderByLatitude)._3
+    val xcells = ((maxLongitude - minLongitude) * 100).toInt + 1
+    val ycells = ((maxLatitude - minLatitude) * 100).toInt + 1
+//    println(xcells + " , " + ycells)
+//    println(maxLatitude + " " + maxLongitude)
+//    println(minLatitude + " " + minLongitude)
     // Transform points relative to envelope borders (40.5,-74.25)
-    val spatiallyTransformedRDD = intedRDD map { x => (x._1, x._2 + math.abs(minLongitude), x._3 - math.abs(minLatitude)) }
+    val spatiallyTransformedRDD = envelopeFilteredRDD map { x => (x._1, x._2 + math.abs(minLongitude), x._3 - math.abs(minLatitude)) }
 
-    println(spatiallyTransformedRDD.count)
-    def isInCell(d: (Int, Int, Int), c: (Int, Int)): Boolean = {
-      (c._1 * 10 <= d._2) &&
-        (d._2 <= (c._1 + 1) * 10 - 1) &&
-        (c._2 * 10 <= d._3) &&
-        (d._3 <= (c._2 + 1) * 10 - 1)
+//    println(spatiallyTransformedRDD.count)
+    def isInCell(d: (Int, Double, Double), c: (Int, Int)): Boolean = {
+      val d2 = d._2 * 100
+      val d3 = d._3 * 100
+      (c._1 <= d2) &&
+        (d2 <= (c._1 + 1)) &&
+        (c._2 <= d3) &&
+        (d3 <= (c._2 + 1))
     }
 
     // Create a cell-grid of ycells x xcells, flatten and zip to get row wise column order indices for any cell
@@ -94,7 +96,7 @@ object CellScript {
     } map {
       x => ((x._1(0)._2, x._2), 1)
     }
-    println(keyedSpatialCelledRDD.count + " records in total before reducing cells downto grouped cells.")
+    //println(keyedSpatialCelledRDD.count + " records in total before reducing cells downto grouped cells.")
     // ReduceByKey and wordCount -> trips in cell obtained!
     val reducedCelledRDD = keyedSpatialCelledRDD.reduceByKey(_ + _)
 
@@ -102,7 +104,7 @@ object CellScript {
       override def compare(x: ((Int, Int), Int), y: ((Int, Int), Int)): Int =
         x._2 compare y._2
     }
-    println(reducedCelledRDD.map(x => x._2).reduce(_ + _) + " sum over cells")
+    //println(reducedCelledRDD.map(x => x._2).reduce(_ + _) + " sum over cells")
 
     def findNeighbor(x: Int, t: Int): List[(Int, Int)] = {
       /*Ugliest scala function ever written*/
@@ -313,20 +315,20 @@ object CellScript {
     // Common constants need this guy
     val xValues = reducedCelledRDD map { x => x._2 }
 
-    val xSquareValues = xValues map{ x => x.toLong } map { x=> x*x }
+    val xSquareValues = xValues map { x => x.toLong } map { x => x * x }
 
     // Common constants
     val n = xValues.count
-    println(n)
+//    println(n)
     val X = xValues.reduce(_ + _) / n
-    println(X)
-//    xValues.saveAsTextFile("./xValues.csv")
-    val sumXSq = xSquareValues.reduce(_+_) / n
-    println(sumXSq)
+//    println(X)
+    //    xValues.saveAsTextFile("./xValues.csv")
+    val sumXSq = xSquareValues.reduce(_ + _) / n
+//    println(sumXSq)
     val XSq = X * X
-    println(XSq)
+//    println(XSq)
     val S = math.sqrt(sumXSq - XSq)
-    println(S)
+//    println(S)
 
 
     //HashMap the cells and their values
@@ -353,13 +355,31 @@ object CellScript {
 
     val outputFile = "./takeOrdered.csv"
 
-//    val file = new File(outputFile)
-//    val bw = new BufferedWriter(new FileWriter(file))
+    //    val file = new File(outputFile)
+    //    val bw = new BufferedWriter(new FileWriter(file))
     val result: Array[(((Int, Int), Int), Double)] = getisReducedRDD.takeOrdered(50)(orderGetis.reverse)
-    result.foreach(println)
-//    bw.close()
-//    bw.writ e()
-//    bw.close()
+//    result.foreach(println)
+
+    /**
+      *
+      * @param cell - (theta,t)
+      * @return (lat, long, t)
+      */
+    def reverseCellToLatLong(cell: (Int, Int)): (Int, Int, Int) = {
+
+      val ycc = ycells + 1
+      val x = (cell._1 - (cell._1 % ycc)) / ycc
+      val y = cell._1 % ycc
+      val latitude = (minLatitude * 100).toInt + (x - 1)
+      val longitude = (minLongitude * 100).toInt + (y + 1)
+
+      (latitude, longitude, cell._2 - 1)
+    }
+    val writeToFileOutput = result.map(x => (reverseCellToLatLong((x._1._1._1, x._1._1._2)), x._2))
+    writeToFileOutput.foreach(println)
+    //    bw.close()
+    //    bw.writ e()
+    //    bw.close()
 
 
   }
