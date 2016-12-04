@@ -1,0 +1,1 @@
+spark-submit --master spark://pswaminathan-23730:7077 --class io.purush.spark.giscup.script.CellScript scala_code-assembly-0.1.jar
