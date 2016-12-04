@@ -332,7 +332,9 @@ object CellScript {
 
 
     //HashMap the cells and their values
+    // ******************COLLECT*********************
     val cellValuesMap = reducedCelledRDD.collect.toMap
+    // ******************COLLECT*********************
 
     def getis(xt: (Int, Int)): Double = {
       val neighs = findNeighbor(xt._1, xt._2).filter(checkTimeBounds) :+ (xt._1, xt._2)
@@ -357,7 +359,9 @@ object CellScript {
 
     //    val file = new File(outputFile)
     //    val bw = new BufferedWriter(new FileWriter(file))
+    // ******************COLLECT*********************
     val result: Array[(((Int, Int), Int), Double)] = getisReducedRDD.takeOrdered(50)(orderGetis.reverse)
+    // ******************COLLECT*********************
 //    result.foreach(println)
 
     /**
@@ -375,6 +379,7 @@ object CellScript {
 
       (latitude, longitude, cell._2 - 1)
     }
+
     val writeToFileOutput = result.map(x => (reverseCellToLatLong((x._1._1._1, x._1._1._2)), x._2))
     writeToFileOutput.foreach(println)
     //    bw.close()
