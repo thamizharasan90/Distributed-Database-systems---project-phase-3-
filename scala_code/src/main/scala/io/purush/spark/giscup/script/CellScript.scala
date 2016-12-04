@@ -1,5 +1,6 @@
 package io.purush.spark.giscup.script
 
+import java.io.{BufferedWriter, File, FileWriter}
 import java.util
 
 import org.apache.spark.{SparkConf, SparkContext}
@@ -312,13 +313,20 @@ object CellScript {
     // Common constants need this guy
     val xValues = reducedCelledRDD map { x => x._2 }
 
+    val xSquareValues = xValues map{ x => x.toLong } map { x=> x*x }
 
     // Common constants
     val n = xValues.count
+    println(n)
     val X = xValues.reduce(_ + _) / n
-    val sumXSq = (xValues reduce { (a, x) => a + (x * x) }) / n
+    println(X)
+//    xValues.saveAsTextFile("./xValues.csv")
+    val sumXSq = xSquareValues.reduce(_+_) / n
+    println(sumXSq)
     val XSq = X * X
+    println(XSq)
     val S = math.sqrt(sumXSq - XSq)
+    println(S)
 
 
     //HashMap the cells and their values
@@ -343,7 +351,16 @@ object CellScript {
         x._2 compare y._2
     }
 
-    getisReducedRDD.takeOrdered(50)(orderGetis)
+    val outputFile = "./takeOrdered.csv"
+
+//    val file = new File(outputFile)
+//    val bw = new BufferedWriter(new FileWriter(file))
+    val result: Array[(((Int, Int), Int), Double)] = getisReducedRDD.takeOrdered(50)(orderGetis.reverse)
+    result.foreach(println)
+//    bw.close()
+//    bw.writ e()
+//    bw.close()
+
 
   }
 
