@@ -8,8 +8,13 @@ import org.apache.spark.{SparkConf, SparkContext}
 object CellScript {
   def main(args: Array[String]): Unit = {
 
+    if(args.length<2){
+      println("Usage -> spark-submit -- spark-submit --master <SPARK_URL> --class io.purush.spark.giscup.script.CellScript group25_phase3.jar <HDFSPATH> <OUTPUTFILE>")
+
+      return
+    }
     // Setup csv file path on hdfs
-    val textFile = "hdfs://localhost:54310/inputBig"
+    val textFile = args(0)
 
     // Setup Spark Context
     val config = new SparkConf().setAppName("Phase-III-GISCUP")
@@ -399,7 +404,7 @@ object CellScript {
       x => printString(x)
     }
     try {
-      val bufferedWriter: BufferedWriter = new BufferedWriter(new FileWriter(new File("results.csv")))
+      val bufferedWriter: BufferedWriter = new BufferedWriter(new FileWriter(new File(args(1))))
 
       writeStrings.foreach(x => bufferedWriter.write(x))
       bufferedWriter.flush()

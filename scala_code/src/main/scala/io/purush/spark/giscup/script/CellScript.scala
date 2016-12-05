@@ -1,6 +1,6 @@
 package io.purush.spark.giscup.script
 
-import java.io.{BufferedWriter, File, FileWriter}
+import java.io._
 import java.util
 
 import org.apache.spark.{SparkConf, SparkContext}
@@ -8,13 +8,19 @@ import org.apache.spark.{SparkConf, SparkContext}
 object CellScript {
   def main(args: Array[String]): Unit = {
 
+    if(args.length<2){
+      println("Usage -> spark-submit -- spark-submit --master <SPARK_URL> --class io.purush.spark.giscup.script.CellScript group25_phase3.jar <HDFSPATH> <OUTPUTFILE>")
+
+      return
+    }
     // Setup csv file path on hdfs
-    val textFile = "hdfs://localhost:54310/inputBig"
+    val textFile = args(0)
 
     // Setup Spark Context
     val config = new SparkConf().setAppName("Phase-III-GISCUP")
     val sc = new SparkContext(config)
 
+    val start: Long = System.currentTimeMillis()
     //create RDD from csv file on hdfs
     val csvFileRDD = sc textFile textFile
 
@@ -68,13 +74,13 @@ object CellScript {
     val minLatitude = envelopeFilteredRDD.min()(orderByLatitude)._3
     val xcells = ((maxLongitude - minLongitude) * 100).toInt + 1
     val ycells = ((maxLatitude - minLatitude) * 100).toInt + 1
-//    println(xcells + " , " + ycells)
-//    println(maxLatitude + " " + maxLongitude)
-//    println(minLatitude + " " + minLongitude)
+    //    println(xcells + " , " + ycells)
+    //    println(maxLatitude + " " + maxLongitude)
+    //    println(minLatitude + " " + minLongitude)
     // Transform points relative to envelope borders (40.5,-74.25)
     val spatiallyTransformedRDD = envelopeFilteredRDD map { x => (x._1, x._2 + math.abs(minLongitude), x._3 - math.abs(minLatitude)) }
 
-//    println(spatiallyTransformedRDD.count)
+    //    println(spatiallyTransformedRDD.count)
     def isInCell(d: (Int, Double, Double), c: (Int, Int)): Boolean = {
       val d2 = d._2 * 100
       val d3 = d._3 * 100
@@ -319,16 +325,16 @@ object CellScript {
 
     // Common constants
     val n = xValues.count
-//    println(n)
+    //    println(n)
     val X = xValues.reduce(_ + _) / n
-//    println(X)
+    //    println(X)
     //    xValues.saveAsTextFile("./xValues.csv")
     val sumXSq = xSquareValues.reduce(_ + _) / n
-//    println(sumXSq)
+    //    println(sumXSq)
     val XSq = X * X
-//    println(XSq)
+    //    println(XSq)
     val S = math.sqrt(sumXSq - XSq)
-//    println(S)
+    //    println(S)
 
 
     //HashMap the cells and their values
@@ -362,8 +368,9 @@ object CellScript {
     // ******************COLLECT*********************
     val result: Array[(((Int, Int), Int), Double)] = getisReducedRDD.takeOrdered(50)(orderGetis.reverse)
     // ******************COLLECT*********************
-//    result.foreach(println)
-
+    //    result.foreach(println)
+    val end: Long = System.currentTimeMillis()
+    println("Total processing time: " + (end - start) / 1000 + " milliseconds.")
     /**
       *
       * @param cell - (theta,t)
@@ -380,13 +387,33 @@ object CellScript {
       (latitude, longitude, cell._2 - 1)
     }
 
-    val writeToFileOutput = result.map(x => (reverseCellToLatLong((x._1._1._1, x._1._1._2)), x._2))
+    val writeToFileOutput: Array[(((Int, Int, Int)), Double)] = result.map(x => (reverseCellToLatLong((x._1._1._1, x._1._1._2)), x._2))
+    writeToFileOutput map {
+      x => x
+    }
     writeToFileOutput.foreach(println)
-    //    bw.close()
-    //    bw.writ e()
-    //    bw.close()
 
+    def printString(x: (((Int, Int, Int)), Double)): String = {
 
+      val resultArr: Array[String] = Array(x._1._1.toString, x._1._2.toString, x._1._3.toString, x._2.toString)
+      var resultString = resultArr.mkString(",")
+      resultString + "\n"
+
+    }
+    val writeStrings: Array[String] = writeToFileOutput map {
+      x => printString(x)
+    }
+    try {
+      val bufferedWriter: BufferedWriter = new BufferedWriter(new FileWriter(new File(args(1))))
+
+      writeStrings.foreach(x => bufferedWriter.write(x))
+      bufferedWriter.flush()
+      bufferedWriter.close()
+    } catch {
+      case ex: Exception =>
+        println("Error writing to csv file.")
+
+    }
   }
 
 }

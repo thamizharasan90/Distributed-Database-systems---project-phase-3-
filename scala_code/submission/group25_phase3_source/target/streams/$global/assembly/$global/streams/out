@@ -4,6 +4,7 @@
 [0m[[0minfo[0m] [0mMerging files...[0m
 [0m[[33mwarn[0m] [0mMerging 'META-INF/MANIFEST.MF' with strategy 'discard'[0m
 [0m[[33mwarn[0m] [0mStrategy 'discard' was applied to a file[0m
+[0m[[0minfo[0m] [0mSHA-1: 910ac980067879726c00cc67f59888cd2de7d933[0m
 [0m[[0minfo[0m] [0mPackaging /Users/pswaminathan/git/ph3/scala_code/submission/group25_phase3_source/target/scala-2.11/scala_code-assembly-0.1.jar ...[0m
 [0m[[0mdebug[0m] [0mInput file mappings:[0m
 [0m[[0mdebug[0m] [0m	io/purush/spark/giscup/script/CellScript$$anon$1.class[0m
