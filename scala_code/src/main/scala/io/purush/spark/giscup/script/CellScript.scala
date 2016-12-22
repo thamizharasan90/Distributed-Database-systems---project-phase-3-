@@ -8,7 +8,7 @@ import org.apache.spark.{SparkConf, SparkContext}
 object CellScript {
   def main(args: Array[String]): Unit = {
 
-    if(args.length<2){
+    if (args.length < 2) {
       println("Usage -> spark-submit -- spark-submit --master <SPARK_URL> --class io.purush.spark.giscup.script.CellScript group25_phase3.jar <HDFSPATH> <OUTPUTFILE>")
 
       return
@@ -95,6 +95,7 @@ object CellScript {
 
     // Cellify cutRDD
     val spatialCelledRDD = spatiallyTransformedRDD map { x => (zippedGrid filter { y => isInCell(x, y._1) }, x._1) }
+    //spatialCelledRDD.take(1).foreach(println)
 
     // Make (CellId,Day) the key and filter those cells with array length=0
     val keyedSpatialCelledRDD = spatialCelledRDD filter {
