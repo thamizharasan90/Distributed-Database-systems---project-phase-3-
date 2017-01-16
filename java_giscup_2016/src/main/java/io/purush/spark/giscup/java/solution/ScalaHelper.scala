@@ -4,12 +4,11 @@ package io.purush.spark.giscup.java.solution
   * Created by pswaminathan on 12/22/16.
   */
 object ScalaHelper {
-
-  def findNeighbor(x: Integer, t: Integer, xcells:Integer, ycells:Integer): List[(Integer, Integer)] = {
+  def findNeighbor(x: Int, t: Int): List[(Int, Int)] = {
     /*Ugliest scala function ever written*/
 
     val ycc = ycells + 1
-    var result = List[(Integer, Integer)]()
+    var result = List[(Int, Int)]()
 
     if (x == 0) {
       // Left Bottom
@@ -206,5 +205,16 @@ object ScalaHelper {
         (x - ycc - 1, t + 1), (x - ycc, t + 1), (x - ycc + 1, t + 1)
       )
     }
+  }
+
+  def getis(xt: (Int, Int)): Double = {
+    val neighs = findNeighbor(xt._1, xt._2).filter(checkTimeBounds) :+ (xt._1, xt._2)
+    val W = neighs.size
+    val denominator = S * math.sqrt((n * W - W * W) / (n - 1))
+    val neighVals = neighs.map(y => cellValuesMap.get(y))
+    val nrSecondHalf = X * W
+    val nrFirstHalf = neighVals.foldLeft(0)((a, x) => a + (if (x.isEmpty) 0 else x.get))
+    val numerator = nrFirstHalf - nrSecondHalf
+    numerator / denominator
   }
 }

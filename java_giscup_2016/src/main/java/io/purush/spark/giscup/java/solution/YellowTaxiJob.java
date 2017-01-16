@@ -42,11 +42,7 @@ public class YellowTaxiJob {
     };
     static transient Function<Tuple2<Integer, Integer>, Boolean> checkTimeBounds = (x) -> x._2() >= 1 && x._2() <= 31;
 
-    static transient Function3<Tuple2<Integer, Integer>, Integer, Integer, Double> getis = (x, xcells, ycells) -> {
-        List<Tuple2<Integer,Integer>> neighs = ScalaHelper.findNeighbor(x._1(), x._2(), xcells, ycells).filter(
-                z -> );
 
-    };
 
     public static void main(String[] args) {
 
